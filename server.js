@@ -1,4 +1,6 @@
 import express from "express";
+import session from "express-session";
+import MySQLStore from "express-mysql-session";
 import path from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -6,7 +8,7 @@ import { pool, initializeDatabase } from "./database.js";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,13 +18,33 @@ await initializeDatabase();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.use(cors());
-
 app.use(
   cors({
-    origin: "*",
+    origin: "http://localhost:3000",
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+const MySQLSessionStore = MySQLStore(session);
+const sessionStore = new MySQLSessionStore(
+  {
+    createDatabaseTable: false,
+  },
+  pool
+);
+
+app.use(
+  session({
+    secret: process.env.SECRET_KEY_SESSION,
+    resave: false,
+    saveUninitialized: false,
+    store: sessionStore,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 60 * 60 * 1000,
+    },
   })
 );
 
@@ -57,18 +79,16 @@ app.post("/adduser", async (request, response) => {
 
     const sqlExist = "SELECT COUNT(*) AS count FROM datausers WHERE email = ?";
     const dataExist = [data.email];
-    const [checkResults] = await pool.execute(sqlExist, dataExist)
+    const [checkResults] = await pool.execute(sqlExist, dataExist);
 
     if (checkResults[0].count > 0) {
-      response.json({ message: "Пользователь существует" })
+      response.json({ message: "Пользователь существует" });
       return;
     }
-
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(data.password, salt);
-
-
-    const sql = "INSERT INTO datausers (datebirth, email, password, role, status, username) VALUES (?, ?, ?, ?, ?, ?)";
+    const sql =
+      "INSERT INTO datausers (datebirth, email, password, role, status, username) VALUES (?, ?, ?, ?, ?, ?)";
     const dataInsert = [
       data.dateBirth,
       data.email,
@@ -77,73 +97,80 @@ app.post("/adduser", async (request, response) => {
       data.status,
       data.name,
     ];
-    const addUser = await pool.query(sql, dataInsert)
+    const addUser = await pool.query(sql, dataInsert);
 
-    response.json({ message: 'Пользователь добавлен' })
+    request.session.email = data.email;
+    request.session.username = data.name;
+
+    response.json({ message: "Пользователь добавлен" });
   } catch (error) {
     response.json({
-      message: 'ошибка сервера'
-    })
+      message: "ошибка сервера",
+    });
   }
 });
 
-app.get('/auth', (request, response) => {
+app.get("/auth", (request, response) => {
   response.sendFile(path.join(__dirname, "views", "auth.html"));
-})
+});
 
-
-app.post('/authuser', async (request, response) => {
+app.post("/authuser", async (request, response) => {
   const { ...dataUser } = request.body;
 
   try {
     if (!dataUser.email || !dataUser.password) {
-      return response.status(400).json({ message: "Email и пароль обязательны" });
+      return response
+        .status(400)
+        .json({ message: "Email и пароль обязательны" });
     }
 
-    const sqlCheckuser = "SELECT email, password FROM datausers WHERE email = ?";
+    const sqlCheckuser =
+      "SELECT email, password FROM datausers WHERE email = ?";
     const dataCheckuser = [dataUser.email];
     const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
 
-
     if (results.length === 0) {
-      return res.status(401).json({ message: "Email и пароль обязательны" });
+      return response
+        .status(401)
+        .json({ message: "Email и пароль обязательны" });
     }
     const user = results[0];
 
-    const isPasswordValid = await bcrypt.compare(dataUser.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      dataUser.password,
+      user.password
+    );
     if (!isPasswordValid) {
-      return response.status(401).json({ message: "Email и пароль обязательны" });
+      return response
+        .status(401)
+        .json({ message: "Email и пароль обязательны" });
     }
-    const token = jwt.sign({ email: user.email }, process.env.SECRET_KEY, { expiresIn: "1h" });
-    response.json({ token });
-
+    request.session.email = dataUser.email;
+    request.session.name = dataUser.name;
+     console.log("Сессия после входа:", req.session);
+    response.json({ message: "Пользователь авторизован" });
   } catch (error) {
     response.json({
-      message: 'ошибка сервера'
-    })
+      message: "ошибка сервера",
+    });
   }
-})
+});
 
+app.get("/account", async (response, request) => {
+  console.log(request.session.email)
 
-app.get('/account', (response, request) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Токен не предоставлен" });
-  }
-
-  const token = authHeader.split(" ")[1];
+  /* if (!request.session.email) {
+    return response.redirect("/auth");
+  } */
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // decoded.email —  email авторизованного пользователя
+ /*    const sqlCheckuser = "SELECT * FROM datausers WHERE email = ?";
+    const dataCheckuser = [dataUser.email];
+    const [results] = await pool.execute(sqlCheckuser, dataCheckuser); */
     response.sendFile(path.join(__dirname, "views", "account.html"));
-    res.json({ message: `Профиль пользователя: ${decoded.email}` });
-
   } catch (err) {
-    res.status(401).json({ message: "Неверный или просроченный токен" });
+    res.status(401).json({ message: "Ошибка сервера" });
   }
-
-
-})
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
