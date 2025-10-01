@@ -12,7 +12,9 @@ const sendDataRegistartion = async (dataReg) => {
             body: JSON.stringify(dataReg)
         })
         const data = await res.json();
-        console.log(data.message)
+        alert(data.message)
+        window.location.href = '/auth';
+
     } catch (error) {
         console.log(error)
         alert('Ошибка сервера. Попробуте отправить еще раз')
@@ -21,12 +23,14 @@ const sendDataRegistartion = async (dataReg) => {
 }
 
 
-btn.addEventListener('click', () => {
+btn.addEventListener('click', async () => {
     const dataReg = {
         name: '',
         dateBirth: '',
         email: '',
         password: '',
+        role: 'user',
+        status: 'active',
     }
     for (let el = 0; el < inp.length; el++) {
         if (inp[el].type == "text" && inp[el].value == '') {
@@ -55,7 +59,7 @@ btn.addEventListener('click', () => {
         }
     }
 
-    sendDataRegistartion(dataReg)
+    await sendDataRegistartion(dataReg)
 
 })
 
