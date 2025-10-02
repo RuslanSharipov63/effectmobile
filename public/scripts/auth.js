@@ -13,7 +13,11 @@ const sendAuth = async (dataAuth) => {
     });
     const data = await res.json();
     alert(data.message);
-      window.location.href = "/account";
+    if (data.role == "user") {
+      window.location.href = `/account/${data.id}`;
+    } else if (data.role == "admin") {
+      window.location.href = `/admin/${data.id}`;
+    }
   } catch (error) {
     console.log(error);
     alert("Ошибка сервера. Попробуте отправить еще раз");

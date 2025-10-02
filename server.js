@@ -1,4 +1,4 @@
-import express from "express";
+import express, { response } from "express";
 import session from "express-session";
 import MySQLStore from "express-mysql-session";
 import path from "path";
@@ -6,7 +6,7 @@ import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { pool, initializeDatabase } from "./database.js";
 import cors from "cors";
-import jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken"; /* потом удалить из модулей */
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 
@@ -29,7 +29,9 @@ app.use(
 const MySQLSessionStore = MySQLStore(session);
 const sessionStore = new MySQLSessionStore(
   {
-    createDatabaseTable: false,
+    expiration: 60 * 60 * 1000,
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000
   },
   pool
 );
@@ -38,6 +40,7 @@ app.use(
   session({
     secret: process.env.SECRET_KEY_SESSION,
     resave: false,
+
     saveUninitialized: false,
     store: sessionStore,
     cookie: {
@@ -98,10 +101,6 @@ app.post("/adduser", async (request, response) => {
       data.name,
     ];
     const addUser = await pool.query(sql, dataInsert);
-
-    request.session.email = data.email;
-    request.session.username = data.name;
-
     response.json({ message: "Пользователь добавлен" });
   } catch (error) {
     response.json({
@@ -125,7 +124,7 @@ app.post("/authuser", async (request, response) => {
     }
 
     const sqlCheckuser =
-      "SELECT email, password FROM datausers WHERE email = ?";
+      "SELECT email, password, id FROM datausers WHERE email = ?";
     const dataCheckuser = [dataUser.email];
     const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
 
@@ -146,9 +145,8 @@ app.post("/authuser", async (request, response) => {
         .json({ message: "Email и пароль обязательны" });
     }
     request.session.email = dataUser.email;
-    request.session.name = dataUser.name;
-     console.log("Сессия после входа:", req.session);
-    response.json({ message: "Пользователь авторизован" });
+    console.log("Сессия после входа:", request.session);
+    response.json({ message: "Пользователь авторизован", id: user.id, role: user.role });
   } catch (error) {
     response.json({
       message: "ошибка сервера",
@@ -156,21 +154,90 @@ app.post("/authuser", async (request, response) => {
   }
 });
 
-app.get("/account", async (response, request) => {
-  console.log(request.session.email)
+app.get("/account/:id", async (request, response) => {
 
-  /* if (!request.session.email) {
+  if (!request.session.email) {
     return response.redirect("/auth");
-  } */
+  }
   try {
- /*    const sqlCheckuser = "SELECT * FROM datausers WHERE email = ?";
-    const dataCheckuser = [dataUser.email];
-    const [results] = await pool.execute(sqlCheckuser, dataCheckuser); */
     response.sendFile(path.join(__dirname, "views", "account.html"));
   } catch (err) {
-    res.status(401).json({ message: "Ошибка сервера" });
+    response.status(401).json({ message: "Ошибка сервера" });
   }
 });
+
+app.get("/getdatauser/:id", async (request, response) => {
+  const id = request.params.id
+  try {
+    const sqlCheckuser = "SELECT * FROM datausers WHERE id = ?";
+    const dataCheckuser = [id];
+    const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
+    const dataUser = results[0];
+    const { password, ...user } = dataUser
+    response.json(user)
+  } catch (error) {
+    console.log(error)
+    response.json({ message: "ошибка сервера" })
+  }
+})
+
+
+app.get("/bunuser/:id", async (request, response) => {
+
+  if (!request.session.email) {
+    return response.redirect("/auth");
+  }
+
+  const id = request.params.id
+  try {
+    const sqlCheckuser = "UPDATE datausers SET ban = ? WHERE id = ?";
+    const dataCheckuser = [1, id];
+    const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
+    if (results.changedRows == 1) {
+      response.json({ message: 'Обновление успешно' })
+    } else {
+      response.json({ message: 'Обновление не удалось. Попробуйте еще раз' })
+    }
+  } catch (error) {
+    console.log(error)
+    response.json({ message: "ошибка сервера" })
+  }
+
+
+})
+
+
+app.get("/admin/:id", async (request, response) => {
+  if (!request.session.email) {
+    return response.redirect("/auth");
+  }
+
+  const id = request.params.id
+  const sqlCheckuser = "SELECT * FROM datausers WHERE id = ?";
+  const dataCheckuser = [id];
+  const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
+  const dataUser = results[0];
+  const { password, ...user } = dataUser
+  response.json(user)
+  response.sendFile(path.join(__dirname, "views", "admin.html"));
+})
+
+
+app.get('/users', async (request, response) => {
+  try {
+    if (!request.session.email) {
+      return response.redirect("/auth");
+    }
+
+    const sqlCheckuser = "SELECT * FROM datausers WHERE password NOT IN";
+    const [results] = await pool.execute(sqlCheckuser);
+    response.json({ results })
+  } catch (error) {
+    console.log(error)
+    response.json({ message: "ошибка сервера" })
+  }
+})
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

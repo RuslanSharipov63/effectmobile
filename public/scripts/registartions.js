@@ -31,6 +31,7 @@ btn.addEventListener('click', async () => {
         password: '',
         role: 'user',
         status: 'active',
+        ban: 0,
     }
     for (let el = 0; el < inp.length; el++) {
         if (inp[el].type == "text" && inp[el].value == '') {
