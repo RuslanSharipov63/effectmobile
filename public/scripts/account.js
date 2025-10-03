@@ -1,3 +1,4 @@
+const btnBan = document.querySelector('.btnBan');
 const urlPars = () => {
     const currentUrl = window.location.href
     const arrCurrentUrl = currentUrl.split("/");
@@ -32,17 +33,19 @@ const viewPage = async (data) => {
     document.querySelector('.card-subtitle').innerText = `email: ${data.email}`
     document.querySelector('.role').innerText = `роль: ${data.role == 'user' ? "пользователь" : "администратор"}`
     document.querySelector('.status').innerText = `статус: ${data.status == 'active' ? "активный" : "не активный"}`
-    document.querySelector('.ban').innerText = `ban: ${data.ban == 0 ? "нет" : "да"}`
+    document.querySelector('.ban').innerText = `ban: ${data.ban == 0 ? "нет" : "да"}`;
+    data.ban == 1 ? btnBan.disabled = true : btnBan.disabled = false
 }
 
 
-const btnBan = document.querySelector('.btnBan');
+
 btnBan.addEventListener('click', async () => {
     alert("Вы правда готовы отправить в бан?")
     const userId = urlPars();
     try {
-        const response = await fetch(`/bunuser/${userId}`)
+        const response = await fetch(`/bunuser/${userId}/1`)
         const data = await response.json();
+        await sendDataUser();
         alert(data.message)
         return;
     } catch (error) {

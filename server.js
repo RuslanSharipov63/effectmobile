@@ -124,7 +124,7 @@ app.post("/authuser", async (request, response) => {
     }
 
     const sqlCheckuser =
-      "SELECT email, password, id FROM datausers WHERE email = ?";
+      "SELECT * FROM datausers WHERE email = ?";
     const dataCheckuser = [dataUser.email];
     const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
 
@@ -182,28 +182,27 @@ app.get("/getdatauser/:id", async (request, response) => {
 })
 
 
-app.get("/bunuser/:id", async (request, response) => {
+app.get("/bunuser/:id/:action", async (request, response) => {
 
   if (!request.session.email) {
     return response.redirect("/auth");
   }
 
   const id = request.params.id
+  const action = request.params.action
   try {
     const sqlCheckuser = "UPDATE datausers SET ban = ? WHERE id = ?";
-    const dataCheckuser = [1, id];
+    const dataCheckuser = [action, id];
     const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
     if (results.changedRows == 1) {
-      response.json({ message: 'Обновление успешно' })
+      response.json({ message: 'Обновление успешно', success: true })
     } else {
-      response.json({ message: 'Обновление не удалось. Попробуйте еще раз' })
+      response.json({ message: 'Обновление не удалось. Попробуйте еще раз', success: false })
     }
   } catch (error) {
     console.log(error)
-    response.json({ message: "ошибка сервера" })
+    response.json({ message: "ошибка сервера", success: false })
   }
-
-
 })
 
 
@@ -212,13 +211,6 @@ app.get("/admin/:id", async (request, response) => {
     return response.redirect("/auth");
   }
 
-  const id = request.params.id
-  const sqlCheckuser = "SELECT * FROM datausers WHERE id = ?";
-  const dataCheckuser = [id];
-  const [results] = await pool.execute(sqlCheckuser, dataCheckuser);
-  const dataUser = results[0];
-  const { password, ...user } = dataUser
-  response.json(user)
   response.sendFile(path.join(__dirname, "views", "admin.html"));
 })
 
@@ -228,10 +220,9 @@ app.get('/users', async (request, response) => {
     if (!request.session.email) {
       return response.redirect("/auth");
     }
-
-    const sqlCheckuser = "SELECT * FROM datausers WHERE password NOT IN";
+    const sqlCheckuser = "SELECT id, username, datebirth, email, status, role, ban FROM datausers";
     const [results] = await pool.execute(sqlCheckuser);
-    response.json({ results })
+    response.json(results)
   } catch (error) {
     console.log(error)
     response.json({ message: "ошибка сервера" })

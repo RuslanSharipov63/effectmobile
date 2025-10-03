@@ -12,9 +12,41 @@
     <title>Админ</title>
   </head>
   <body>
-
-
-
+    <h5 class="mt-2 text-center">Список пользователей</h3>
+    <div class="modal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Выберите действие</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <button type="button" class="btn btn-primary">Разбанить</button>
+            <button type="button" class="btn btn-danger">Забанить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <table class="table mt-2">
+      <thead>
+        <tr>
+          <th scope="col">№</th>
+          <th scope="col">имя</th>
+          <th scope="col">дата рождения</th>
+          <th scope="col">email</th>
+          <th scope="col">статус</th>
+          <th scope="col">роль</th>
+          <th scope="col">бан</th>
+        </tr>
+      </thead>
+      <tbody class="tb"></tbody>
+    </table>
+    <a href="/" class="m-2"><button type="button" class="btn btn-primary">Главная</button></a>
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
       integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
